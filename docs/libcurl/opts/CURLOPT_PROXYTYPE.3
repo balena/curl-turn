@@ -30,8 +30,9 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_PROXYTYPE, long type);
 .SH DESCRIPTION
 Pass a long with this option to set type of the proxy. Available options for
 this are \fICURLPROXY_HTTP\fP, \fICURLPROXY_HTTP_1_0\fP
-\fICURLPROXY_SOCKS4\fP, \fICURLPROXY_SOCKS5\fP, \fICURLPROXY_SOCKS4A\fP and
-\fICURLPROXY_SOCKS5_HOSTNAME\fP. The HTTP type is default.
+\fICURLPROXY_SOCKS4\fP, \fICURLPROXY_SOCKS5\fP, \fICURLPROXY_SOCKS4A\fP,
+\fICURLPROXY_SOCKS5_HOSTNAME\fP and \fICURLPROXY_TURN\fP. The HTTP type is
+default.
 
 If you set \fBCURLOPT_PROXYTYPE(3)\fP to \fICURLPROXY_HTTP_1_0\fP, it will
 only affect how libcurl speaks to a proxy when CONNECT is used. The HTTP

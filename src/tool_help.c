@@ -200,6 +200,7 @@ static const char *const helptext[] = {
   "     --socks5-gssapi-service NAME  SOCKS5 proxy service name for GSS-API",
   "     --socks5-gssapi-nec  Compatibility with NEC SOCKS5 server",
 #endif
+  "     --turn HOST[:PORT]  TURN proxy on given host + port",
   " -Y, --speed-limit RATE  "
   "Stop transfers below RATE for 'speed-time' secs",
   " -y, --speed-time SECONDS  "

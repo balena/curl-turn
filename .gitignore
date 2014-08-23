@@ -47,3 +47,4 @@ CHANGES.dist
 .settings
 /[0-9]*.patch
 .dirstamp
+build

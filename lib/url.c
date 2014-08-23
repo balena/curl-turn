@@ -117,6 +117,7 @@ int curl_win32_idn_to_ascii(const char *in, char **out);
 #include "curl_ntlm.h"
 #include "curl_ntlm_wb.h"
 #include "socks.h"
+#include "turn.h"
 #include "curl_rtmp.h"
 #include "gopher.h"
 #include "http_proxy.h"
@@ -3334,6 +3335,11 @@ CURLcode Curl_connected_proxy(struct connectdata *conn,
     return Curl_SOCKS4(conn->proxyuser, conn->host.name,
                        conn->remote_port, FIRSTSOCKET, conn, TRUE);
 
+  case CURLPROXY_TURN:
+    return Curl_TURN(conn->proxyuser, conn->proxypasswd,
+                     conn->host.name, conn->remote_port,
+                     FIRSTSOCKET, conn);
+
 #endif /* CURL_DISABLE_PROXY */
   case CURLPROXY_HTTP:
   case CURLPROXY_HTTP_1_0:
@@ -4397,6 +4403,8 @@ static CURLcode parse_proxy(struct SessionHandle *data,
       conn->proxytype = CURLPROXY_SOCKS4A;
     else if(checkprefix("socks4", proxy) || checkprefix("socks", proxy))
       conn->proxytype = CURLPROXY_SOCKS4;
+    else if(checkprefix("turn", proxy))
+      conn->proxytype = CURLPROXY_TURN;
     /* Any other xxx:// : change to http proxy */
   }
   else

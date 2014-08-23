@@ -613,9 +613,10 @@ typedef enum {
                            in 7.10 */
   CURLPROXY_SOCKS5 = 5, /* added in 7.10 */
   CURLPROXY_SOCKS4A = 6, /* added in 7.18.0 */
-  CURLPROXY_SOCKS5_HOSTNAME = 7 /* Use the SOCKS5 protocol but pass along the
-                                   host name rather than the IP address. added
-                                   in 7.18.0 */
+  CURLPROXY_SOCKS5_HOSTNAME = 7, /* Use the SOCKS5 protocol but pass along the
+                                    host name rather than the IP address. added
+                                    in 7.18.0 */
+  CURLPROXY_TURN = 8 /* Use the TURN protocol (RFC 6062) */
 } curl_proxytype;  /* this enum was added in 7.10 */
 
 /*

@@ -176,6 +176,7 @@ static const struct LongShort aliases[]= {
   {"$J", "metalink",                 FALSE},
   {"$K", "sasl-ir",                  FALSE},
   {"$L", "test-event",               FALSE},
+  {"$l", "turn",                     TRUE},
   {"0",   "http1.0",                 FALSE},
   {"01",  "http1.1",                 FALSE},
   {"02",  "http2",                   FALSE},
@@ -770,6 +771,10 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
                    resolving with the proxy */
         GetStr(&config->socksproxy, nextarg);
         config->socksver = CURLPROXY_SOCKS5_HOSTNAME;
+        break;
+      case 'l': /* --turn specifies a TCP over TURN proxy to use */
+        GetStr(&config->socksproxy, nextarg);
+        config->socksver = CURLPROXY_TURN;
         break;
       case 'd': /* --tcp-nodelay option */
         config->tcp_nodelay = toggle;
