@@ -23,7 +23,9 @@
 
 #include "curl_setup.h"
 
-#if !defined(CURL_DISABLE_PROXY)
+#if !defined(CURL_DISABLE_PROXY) \
+    && !defined(CURL_DISABLE_TURN) \
+    && !defined(CURL_DISABLE_CRYPTO_AUTH)
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -40,6 +42,7 @@
 #include "timeval.h"
 #include "socks.h"
 #include "turn.h"
+#include "stun_msg.h"
 
 /* The last #include file should be: */
 #include "memdebug.h"
@@ -444,5 +447,5 @@ CURLcode Curl_TURN(const char *proxy_name,
   return CURLE_OK; /* Proxy was successful! */
 }
 
-#endif /* CURL_DISABLE_PROXY */
+#endif
 
