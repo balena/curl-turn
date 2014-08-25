@@ -23,6 +23,8 @@
  *
  ***************************************************************************/
 
+/* Based on https://code.google.com/p/stun-msg/ */
+
 #if !defined(CURL_DISABLE_PROXY) \
     && !defined(CURL_DISABLE_TURN) \
     && !defined(CURL_DISABLE_CRYPTO_AUTH)

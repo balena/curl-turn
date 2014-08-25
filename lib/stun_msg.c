@@ -21,6 +21,8 @@
  *
  ***************************************************************************/
 
+/* Based on https://code.google.com/p/stun-msg/ */
+
 #include "curl_setup.h"
 
 #if !defined(CURL_DISABLE_PROXY) \
