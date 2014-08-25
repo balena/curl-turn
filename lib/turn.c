@@ -189,6 +189,7 @@ static CURLcode send_alloc_req(struct TURN *turn,
   CURLcode code;
   uint16_t buf_len;
   uint16_t msg_type;
+  void *buf;
 
   /* Send the ALLOCATE request */
   buf_len = sizeof(struct stun_msg_hdr)
@@ -196,7 +197,9 @@ static CURLcode send_alloc_req(struct TURN *turn,
     + STUN_ATTR_UINT32_SIZE
     + STUN_ATTR_UINT8_SIZE;
   turn->req = (struct stun_msg_hdr *)malloc(buf_len);
-  ++turn->tsx_id[8];
+  if (!turn->req)
+    return CURLE_OUT_OF_MEMORY;
+  ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_ALLOCATE_REQUEST, turn->tsx_id);
   stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
       (uint8_t*)"curl", 4, 0);
@@ -243,11 +246,15 @@ static CURLcode send_alloc_req(struct TURN *turn,
     /* Save realm and nonce */
     turn->realm_len = stun_attr_len(&realm->hdr);
     turn->realm = (char*)malloc(turn->realm_len+1);
+    if (!turn->realm)
+      return CURLE_OUT_OF_MEMORY;
     memcpy(turn->realm, stun_attr_varsize_read(realm), turn->realm_len);
     turn->realm[turn->realm_len] = '\0';
 
     turn->nonce_len = stun_attr_len(&nonce->hdr);
     turn->nonce = (char*)malloc(turn->nonce_len+1);
+    if (!turn->nonce)
+      return CURLE_OUT_OF_MEMORY;
     memcpy(turn->nonce, stun_attr_varsize_read(nonce), turn->nonce_len);
     turn->nonce[turn->nonce_len] = '\0';
 
@@ -258,7 +265,10 @@ static CURLcode send_alloc_req(struct TURN *turn,
         + STUN_ATTR_VARSIZE_SIZE(stun_attr_len(&realm->hdr))
         + STUN_ATTR_VARSIZE_SIZE(stun_attr_len(&nonce->hdr))
         + STUN_ATTR_MSGINT_SIZE;
-    turn->req = (struct stun_msg_hdr *)realloc(turn->req, buf_len);
+    buf = realloc(turn->req, buf_len);
+    if (!buf)
+      return CURLE_OUT_OF_MEMORY;
+    turn->req = (struct stun_msg_hdr *)buf;
     ++turn->req->tsx_id[11]; /* Increment transaction number */
     stun_attr_varsize_add(turn->req, STUN_USERNAME,
         (uint8_t*)username, username_len, 0);
@@ -314,6 +324,7 @@ static CURLcode send_connect_req(struct TURN *turn,
   uint16_t msg_type;
   size_t username_len;
   uint16_t buf_len;
+  void *buf;
 
   rc = Curl_resolv(turn->conn, hostname, remote_port, &dns);
 
@@ -349,8 +360,11 @@ static CURLcode send_connect_req(struct TURN *turn,
       + STUN_ATTR_VARSIZE_SIZE(turn->nonce_len)
       + STUN_ATTR_MSGINT_SIZE;
   }
-  turn->req = (struct stun_msg_hdr *)realloc(turn->req, buf_len);
-  ++turn->tsx_id[8];
+  buf = realloc(turn->req, buf_len);
+  if (!buf)
+    return CURLE_OUT_OF_MEMORY;
+  turn->req = (struct stun_msg_hdr *)buf;
+  ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_CONNECT_REQUEST, turn->tsx_id);
   stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
       (uint8_t*)"curl", 4, 0);
@@ -414,6 +428,7 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
   uint16_t msg_type;
   size_t username_len;
   uint16_t buf_len;
+  void *buf;
 
   /*
    * TODO: if there are multiple addresses for the same host, it won't work.
@@ -474,7 +489,10 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
       + STUN_ATTR_VARSIZE_SIZE(turn->nonce_len)
       + STUN_ATTR_MSGINT_SIZE;
   }
-  turn->req = (struct stun_msg_hdr *)realloc(turn->req, buf_len);
+  buf = realloc(turn->req, buf_len);
+  if (!buf)
+    return CURLE_OUT_OF_MEMORY;
+  turn->req = (struct stun_msg_hdr *)buf;
   ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_CONNECTION_BIND_REQUEST, turn->tsx_id);
   stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
@@ -551,6 +569,8 @@ static CURLcode stun_recv(struct TURN *turn,
   /* Receive header first */
   buf_len = sizeof(struct stun_msg_hdr);
   buf = (uint8_t *)malloc(buf_len);
+  if (!buf)
+    return CURLE_OUT_OF_MEMORY;
   resp = (struct stun_msg_hdr *)buf;
   result = Curl_blockread_all(turn->conn, sock, (char*)buf, buf_len, &actualread);
   if((result != CURLE_OK) || (actualread != buf_len)) {
@@ -562,6 +582,10 @@ static CURLcode stun_recv(struct TURN *turn,
   if (stun_msg_len(resp) > sizeof(struct stun_msg_hdr)) {
     buf_len = stun_msg_len(resp);
     buf = (uint8_t *)realloc(buf, buf_len);
+    if (!buf) {
+      free(resp);
+      return CURLE_OUT_OF_MEMORY;
+    }
     resp = (struct stun_msg_hdr *)buf;
     result = Curl_blockread_all(turn->conn, sock,
         (char*)(buf + sizeof(struct stun_msg_hdr)),
