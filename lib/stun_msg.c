@@ -259,7 +259,7 @@ void stun_attr_varsize_init(struct stun_attr_varsize *attr, uint16_t type,
 
 void stun_attr_uint8_init(struct stun_attr_uint8 *attr, uint16_t type,
                           uint8_t value) {
-  stun_attr_hdr_init(&attr->hdr, type, sizeof(attr->value));
+  stun_attr_hdr_init(&attr->hdr, type, 4);
   attr->value = value;
   memset(attr->unused, 0, sizeof(attr->unused));
 }
@@ -598,7 +598,7 @@ const char *stun_attr_errcode_reason(const struct stun_attr_errcode *attr) {
 }
 
 size_t stun_attr_errcode_reason_len(const struct stun_attr_errcode *attr) {
-  return stun_attr_len(&attr->hdr) - sizeof(struct stun_attr_hdr);
+  return stun_attr_len(&attr->hdr) - 4;
 }
 
 size_t stun_attr_unknown_count(const struct stun_attr_unknown *attr) {
@@ -650,14 +650,16 @@ int stun_attr_msgint_check(struct stun_attr_msgint *msgint,
   return memcmp(digest, msgint->hmac, sizeof(digest)) == 0 ? 1 : 0;
 }
 
-void stun_key(const char *username, const char *realm, const char *password,
+void stun_key(const char *username, size_t username_len,
+              const char *realm, size_t realm_len,
+              const char *password, size_t password_len,
               uint8_t key[16]) {
   MD5_context *ctxt = Curl_MD5_init(Curl_DIGEST_MD5);
-  Curl_MD5_update(ctxt, (unsigned char*)username, strlen(username));
+  Curl_MD5_update(ctxt, (unsigned char*)username, username_len);
   Curl_MD5_update(ctxt, ":", 1);
-  Curl_MD5_update(ctxt, (unsigned char*)realm, strlen(realm));
+  Curl_MD5_update(ctxt, (unsigned char*)realm, realm_len);
   Curl_MD5_update(ctxt, ":", 1);
-  Curl_MD5_update(ctxt, (unsigned char*)password, strlen(password));
+  Curl_MD5_update(ctxt, (unsigned char*)password, password_len);
   Curl_MD5_final(ctxt, key);
 }
 

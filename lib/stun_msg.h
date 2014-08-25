@@ -249,6 +249,12 @@ struct stun_attr_unknown {
 /* Gets the size of a UNKNOWN attribute, given the number of attributes */
 #define STUN_ATTR_UNKNOWN_SIZE(x) (4 + ((((x) << 1) + 3) & (~3)))
 
+/* Gets the size of a 8-bit attribute */
+#define STUN_ATTR_UINT8_SIZE (4 + 4)
+
+/* Gets the size of a 16-bit attribute */
+#define STUN_ATTR_UINT16_SIZE (4 + 4)
+
 /* Gets the size of a 32-bit attribute */
 #define STUN_ATTR_UINT32_SIZE (4 + 4)
 
@@ -503,7 +509,9 @@ int stun_attr_msgint_check(struct stun_attr_msgint *msgint,
 /* Calculates the key used for long term credentials for using with the
  * MESSAGE-INTEGRITY attribute; MD5(user:realm:pass).
  */
-void stun_key(const char *username, const char *realm, const char *password,
+void stun_key(const char *username, size_t username_len,
+              const char *realm, size_t realm_len,
+              const char *password, size_t password_len,
               uint8_t key[16]);
 
 #endif
