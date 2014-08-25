@@ -107,6 +107,13 @@ static CURLcode stun_recv(struct TURN *turn,
                           int sockindex);
 
 /*
+ * Dump the STUN response using failf.
+ */
+static void failf_dump(struct SessionHandle *data,
+                       const char *text,
+                       struct stun_msg_hdr *resp);
+
+/*
  * This function logs in to a TURN proxy and sends the specifics to the final
  * destination server.
  */
@@ -242,6 +249,12 @@ static CURLcode send_alloc_req(struct TURN *turn,
           "response doesn't contain a challenge.", status);
       return CURLE_COULDNT_CONNECT;
     }
+    if(!username || !*username) {
+      failf(data,
+            "TURN server challenged the allocate request, but no"
+            " username/password was supplied.");
+      return CURLE_COULDNT_CONNECT;
+    }
 
     /* Save realm and nonce */
     turn->realm_len = stun_attr_len(&realm->hdr);
@@ -291,19 +304,7 @@ static CURLcode send_alloc_req(struct TURN *turn,
   msg_type = stun_msg_type(turn->resp);
   if(!STUN_IS_SUCCESS_RESPONSE(msg_type)
      || msg_type != STUN_ALLOCATE_RESPONSE) {
-    struct stun_attr_errcode *errcode;
-    errcode = (struct stun_attr_errcode *)
-        stun_msg_find_attr(turn->resp, STUN_ERROR_CODE);
-    if(errcode) {
-      int status = stun_attr_errcode_status(errcode);
-      failf(data, "TURN server returned %s %s (%d %.*s).",
-          stun_method_name(msg_type), stun_class_name(msg_type), status,
-          stun_attr_errcode_reason_len(errcode),
-          stun_attr_errcode_reason(errcode));
-    } else {
-      failf(data, "TURN server returned %s %s.",
-          stun_method_name(msg_type), stun_class_name(msg_type));
-    }
+    failf_dump(data, "While allocating, TURN server returned", turn->resp);
     return CURLE_COULDNT_CONNECT;
   }
 
@@ -390,19 +391,7 @@ static CURLcode send_connect_req(struct TURN *turn,
   msg_type = stun_msg_type(turn->resp);
   if(!STUN_IS_SUCCESS_RESPONSE(msg_type)
      || msg_type != STUN_CONNECT_RESPONSE) {
-    struct stun_attr_errcode *errcode;
-    errcode = (struct stun_attr_errcode *)
-        stun_msg_find_attr(turn->resp, STUN_ERROR_CODE);
-    if(errcode) {
-      int status = stun_attr_errcode_status(errcode);
-      failf(data, "TURN server returned %s %s (%d %.*s).",
-          stun_method_name(msg_type), stun_class_name(msg_type), status,
-          stun_attr_errcode_reason_len(errcode),
-          stun_attr_errcode_reason(errcode));
-    } else {
-      failf(data, "TURN server returned %s %s.",
-          stun_method_name(msg_type), stun_class_name(msg_type));
-    }
+    failf_dump(data, "While connecting, TURN server returned", turn->resp);
     return CURLE_COULDNT_CONNECT;
   }
 
@@ -518,19 +507,7 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
   msg_type = stun_msg_type(turn->resp);
   if(!STUN_IS_SUCCESS_RESPONSE(msg_type)
      || msg_type != STUN_CONNECTION_BIND_RESPONSE) {
-    struct stun_attr_errcode *errcode;
-    errcode = (struct stun_attr_errcode *)
-        stun_msg_find_attr(turn->resp, STUN_ERROR_CODE);
-    if(errcode) {
-      int status = stun_attr_errcode_status(errcode);
-      failf(data, "TURN server returned %s %s (%d %*s) for the data channel.",
-            stun_method_name(msg_type), stun_class_name(msg_type), status,
-            stun_attr_errcode_reason_len(errcode),
-            stun_attr_errcode_reason(errcode));
-    } else {
-      failf(data, "TURN server returned %s %s for the data channel.",
-            stun_method_name(msg_type), stun_class_name(msg_type));
-    }
+    failf_dump(data, "While binding connection, TURN server returned", turn->resp);
     return CURLE_COULDNT_CONNECT;
   }
 
@@ -602,6 +579,27 @@ static CURLcode stun_recv(struct TURN *turn,
   turn->resp = resp;
 
   return CURLE_OK;
+}
+
+static void failf_dump(struct SessionHandle *data,
+                       const char *text,
+                       struct stun_msg_hdr *resp) {
+  uint16_t msg_type = stun_msg_type(resp);
+  if(STUN_IS_ERROR_RESPONSE(msg_type)) {
+    struct stun_attr_errcode *errcode;
+    errcode = (struct stun_attr_errcode *)
+        stun_msg_find_attr(resp, STUN_ERROR_CODE);
+    if(errcode) {
+      int status = stun_attr_errcode_status(errcode);
+      failf(data, "%s: %s %s (%d %*s)", text,
+            stun_method_name(msg_type), stun_class_name(msg_type), status,
+            stun_attr_errcode_reason_len(errcode),
+            stun_attr_errcode_reason(errcode));
+      return;
+    }
+  }
+  failf(data, "%s: %s %s", text,
+        stun_method_name(msg_type), stun_class_name(msg_type));
 }
 
 #endif
