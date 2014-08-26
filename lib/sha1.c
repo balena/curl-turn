@@ -89,10 +89,7 @@ static void SHA1_Final(unsigned char digest[20], SHA1_CTX * ctx)
 
 #  ifdef USE_OPENSSL
 #    include <openssl/sha.h>
-<<<<<<< HEAD
 #    define SHA1_CTX SHA_CTX
-=======
->>>>>>> origin/master
 #  else
 #    include <sha1.h>
 #  endif
