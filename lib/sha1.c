@@ -88,7 +88,7 @@ static void SHA1_Final(unsigned char digest[20], SHA1_CTX * ctx)
 /* When OpenSSL is available we use the SHA1-function from OpenSSL */
 
 #  ifdef USE_OPENSSL
-#    include <openssl/sha1.h>
+#    include <openssl/sha.h>
 #  else
 #    include <sha1.h>
 #  endif
@@ -317,7 +317,7 @@ const HMAC_params Curl_HMAC_SHA1[] = {
     (HMAC_hinit_func) SHA1_Init,          /* Hash initialization function. */
     (HMAC_hupdate_func) SHA1_Update,      /* Hash update function. */
     (HMAC_hfinal_func) SHA1_Final,        /* Hash computation end function. */
-    sizeof(SHA1_CTX),                     /* Size of hash context structure. */
+    sizeof(SHA_CTX),                      /* Size of hash context structure. */
     64,                                   /* Maximum key length. */
     20                                    /* Result size. */
   }
@@ -328,7 +328,7 @@ const SHA1_params Curl_DIGEST_SHA1[] = {
     (Curl_SHA1_init_func) SHA1_Init,     /* Digest initialization function */
     (Curl_SHA1_update_func) SHA1_Update, /* Digest update function */
     (Curl_SHA1_final_func) SHA1_Final,   /* Digest computation end function */
-    sizeof(SHA1_CTX),                    /* Size of digest context struct */
+    sizeof(SHA_CTX),                     /* Size of digest context struct */
     20                                   /* Result size */
   }
 };
@@ -336,7 +336,7 @@ const SHA1_params Curl_DIGEST_SHA1[] = {
 void Curl_sha1it(unsigned char *outbuffer, /* 20 bytes */
                  const unsigned char *input)
 {
-  SHA1_CTX ctx;
+  SHA_CTX ctx;
   SHA1_Init(&ctx);
   SHA1_Update(&ctx, input, curlx_uztoui(strlen((char *)input)));
   SHA1_Final(outbuffer, &ctx);
