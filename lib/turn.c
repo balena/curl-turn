@@ -334,7 +334,7 @@ static CURLcode send_connect_req(struct TURN *turn,
 
   if(rc == CURLRESOLV_PENDING)
     /* ignores the return code, but 'dns' remains NULL on failure */
-    (void)Curl_resolver_wait_resolv(conn, &dns);
+    (void)Curl_resolver_wait_resolv(turn->conn, &dns);
 
   if(dns)
     hp=dns->addr;
