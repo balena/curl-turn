@@ -88,7 +88,8 @@ static void SHA1_Final(unsigned char digest[20], SHA1_CTX * ctx)
 /* When OpenSSL is available we use the SHA1-function from OpenSSL */
 
 #  ifdef USE_OPENSSL
-#    include <openssl/sha1.h>
+#    include <openssl/sha.h>
+#    define SHA1_CTX SHA_CTX
 #  else
 #    include <sha1.h>
 #  endif

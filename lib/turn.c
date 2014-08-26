@@ -61,8 +61,8 @@ struct TURN {
   size_t nonce_len;
   uint8_t key[16];
   uint8_t tsx_id[12];
-  struct stun_msg_hdr *req;
-  struct stun_msg_hdr *resp;
+  stun_msg_hdr *req;
+  stun_msg_hdr *resp;
   struct connectdata *conn;
   uint32_t connection_id;
 };
@@ -111,7 +111,7 @@ static CURLcode stun_recv(struct TURN *turn,
  */
 static void failf_dump(struct SessionHandle *data,
                        const char *text,
-                       struct stun_msg_hdr *resp);
+                       stun_msg_hdr *resp);
 
 /*
  * This function logs in to a TURN proxy and sends the specifics to the final
@@ -199,19 +199,18 @@ static CURLcode send_alloc_req(struct TURN *turn,
   void *buf;
 
   /* Send the ALLOCATE request */
-  buf_len = sizeof(struct stun_msg_hdr)
+  buf_len = sizeof(stun_msg_hdr)
     + STUN_ATTR_VARSIZE_SIZE(4)
     + STUN_ATTR_UINT32_SIZE
     + STUN_ATTR_UINT8_SIZE;
-  turn->req = (struct stun_msg_hdr *)malloc(buf_len);
+  turn->req = (stun_msg_hdr *)malloc(buf_len);
   if (!turn->req)
     return CURLE_OUT_OF_MEMORY;
   ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_ALLOCATE_REQUEST, turn->tsx_id);
-  stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
-      (uint8_t*)"curl", 4, 0);
-  stun_attr_uint32_add(turn->req, STUN_LIFETIME, 1*60*60); /* 1h */
-  stun_attr_uint8_add(turn->req, STUN_REQUESTED_TRANSPORT, 6); /* TCP */
+  stun_attr_varsize_add(turn->req, STUN_ATTR_SOFTWARE, "curl", 4, 0);
+  stun_attr_uint32_add(turn->req, STUN_ATTR_LIFETIME, 1*60*60); /* 1h */
+  stun_attr_uint8_add(turn->req, STUN_ATTR_REQUESTED_TRANSPORT, 6); /* TCP */
   
   code = stun_send_req(turn, FIRSTSOCKET);
   if (code != CURLE_OK) {
@@ -221,21 +220,21 @@ static CURLcode send_alloc_req(struct TURN *turn,
 
   /* Authenticate if needed */
   if(STUN_IS_ERROR_RESPONSE(stun_msg_type(turn->resp))) {
-    struct stun_attr_errcode *errcode = NULL;
-    struct stun_attr_varsize *realm = NULL, *nonce = NULL;
-    struct stun_attr_hdr *attr = NULL;
+    stun_attr_errcode *errcode = NULL;
+    stun_attr_varsize *realm = NULL, *nonce = NULL;
+    stun_attr_hdr *attr = NULL;
     int status;
 
     while ((attr = stun_msg_next_attr(turn->resp, attr)) != NULL) {
       switch (stun_attr_type(attr)) {
-      case STUN_ERROR_CODE:
-        errcode = (struct stun_attr_errcode *)attr;
+      case STUN_ATTR_ERROR_CODE:
+        errcode = (stun_attr_errcode *)attr;
         break;
-      case STUN_REALM:
-        realm = (struct stun_attr_varsize *)attr;
+      case STUN_ATTR_REALM:
+        realm = (stun_attr_varsize *)attr;
         break;
-      case STUN_NONCE:
-        nonce = (struct stun_attr_varsize *)attr;
+      case STUN_ATTR_NONCE:
+        nonce = (stun_attr_varsize *)attr;
         break;
       }
     }
@@ -281,16 +280,15 @@ static CURLcode send_alloc_req(struct TURN *turn,
     buf = realloc(turn->req, buf_len);
     if (!buf)
       return CURLE_OUT_OF_MEMORY;
-    turn->req = (struct stun_msg_hdr *)buf;
+    turn->req = (stun_msg_hdr *)buf;
     ++turn->req->tsx_id[11]; /* Increment transaction number */
-    stun_attr_varsize_add(turn->req, STUN_USERNAME,
-        (uint8_t*)username, username_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_REALM,
-        (uint8_t*)turn->realm, turn->realm_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_NONCE,
-        (uint8_t*)turn->nonce, turn->nonce_len, 0);
-    stun_key(username, username_len, turn->realm, turn->realm_len,
-             password, strlen(password), turn->key);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_USERNAME, username, username_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_REALM, turn->realm,
+        turn->realm_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_NONCE, turn->nonce,
+        turn->nonce_len, 0);
+    stun_genkey(username, username_len, turn->realm, turn->realm_len,
+                password, strlen(password), turn->key);
     stun_attr_msgint_add(turn->req, turn->key, 16);
 
     code = stun_send_req(turn, FIRSTSOCKET);
@@ -320,7 +318,7 @@ static CURLcode send_connect_req(struct TURN *turn,
   Curl_addrinfo *hp=NULL;
   struct SessionHandle *data = turn->conn->data;
   struct Curl_sockaddr_storage remote_addr;
-  struct stun_attr_uint32 *connection_id;
+  stun_attr_uint32 *connection_id;
   CURLcode code;
   uint16_t msg_type;
   size_t username_len;
@@ -352,7 +350,7 @@ static CURLcode send_connect_req(struct TURN *turn,
 
   /* Send the CONNECT request */
   username_len = strlen(username);
-  buf_len = sizeof(struct stun_msg_hdr)
+  buf_len = sizeof(stun_msg_hdr)
     + STUN_ATTR_VARSIZE_SIZE(4)
     + STUN_ATTR_SOCKADDR_SIZE(STUN_IPV4);
   if (turn->realm) {
@@ -364,20 +362,18 @@ static CURLcode send_connect_req(struct TURN *turn,
   buf = realloc(turn->req, buf_len);
   if (!buf)
     return CURLE_OUT_OF_MEMORY;
-  turn->req = (struct stun_msg_hdr *)buf;
+  turn->req = (stun_msg_hdr *)buf;
   ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_CONNECT_REQUEST, turn->tsx_id);
-  stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
-      (uint8_t*)"curl", 4, 0);
-  stun_attr_xor_sockaddr_add(turn->req, STUN_XOR_PEER_ADDRESS,
+  stun_attr_varsize_add(turn->req, STUN_ATTR_SOFTWARE, "curl", 4, 0);
+  stun_attr_xor_sockaddr_add(turn->req, STUN_ATTR_XOR_PEER_ADDRESS,
       (struct sockaddr *)&remote_addr);
   if (turn->realm) {
-    stun_attr_varsize_add(turn->req, STUN_USERNAME,
-        (uint8_t*)username, username_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_REALM,
-        (uint8_t*)turn->realm, turn->realm_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_NONCE,
-        (uint8_t*)turn->nonce, turn->nonce_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_USERNAME, username, username_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_REALM, turn->realm,
+        turn->realm_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_NONCE, turn->nonce,
+        turn->nonce_len, 0);
     stun_attr_msgint_add(turn->req, turn->key, 16); /* Already calculated */
   }
 
@@ -395,8 +391,8 @@ static CURLcode send_connect_req(struct TURN *turn,
     return CURLE_COULDNT_CONNECT;
   }
 
-  connection_id = (struct stun_attr_uint32 *)
-      stun_msg_find_attr(turn->resp, STUN_CONNECTION_ID);
+  connection_id = (stun_attr_uint32 *)
+      stun_msg_find_attr(turn->resp, STUN_ATTR_CONNECTION_ID);
   if(!connection_id) {
     failf(data, "TURN connect response doesn't contain CONNECTION-ID.");
     return CURLE_COULDNT_CONNECT;
@@ -429,8 +425,8 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
 
   if(rc == CURLRESOLV_PENDING)
     /* BLOCKING, ignores the return code but 'addr' will be NULL in
-        case of failure */
-    (void)Curl_resolver_wait_resolv(conn, &addr);
+       case of failure */
+    (void)Curl_resolver_wait_resolv(turn->conn, &dns);
 
   if(!dns) {
     failf(data, "Can't resolve TURN host %s:%hu",
@@ -469,7 +465,7 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
 
   /* Send the CONNECTION-BIND request */
   username_len = strlen(username);
-  buf_len = sizeof(struct stun_msg_hdr)
+  buf_len = sizeof(stun_msg_hdr)
     + STUN_ATTR_VARSIZE_SIZE(4)
     + STUN_ATTR_UINT32_SIZE;
   if (turn->realm) {
@@ -481,19 +477,17 @@ static CURLcode send_connection_bind_req(struct TURN *turn,
   buf = realloc(turn->req, buf_len);
   if (!buf)
     return CURLE_OUT_OF_MEMORY;
-  turn->req = (struct stun_msg_hdr *)buf;
+  turn->req = (stun_msg_hdr *)buf;
   ++turn->tsx_id[11];
   stun_msg_hdr_init(turn->req, STUN_CONNECTION_BIND_REQUEST, turn->tsx_id);
-  stun_attr_varsize_add(turn->req, STUN_SOFTWARE,
-      (uint8_t*)"curl", 4, 0);
-  stun_attr_uint32_add(turn->req, STUN_CONNECTION_ID, turn->connection_id);
+  stun_attr_varsize_add(turn->req, STUN_ATTR_SOFTWARE, "curl", 4, 0);
+  stun_attr_uint32_add(turn->req, STUN_ATTR_CONNECTION_ID, turn->connection_id);
   if (turn->realm) {
-    stun_attr_varsize_add(turn->req, STUN_USERNAME,
-        (uint8_t*)username, username_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_REALM,
-        (uint8_t*)turn->realm, turn->realm_len, 0);
-    stun_attr_varsize_add(turn->req, STUN_NONCE,
-        (uint8_t*)turn->nonce, turn->nonce_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_USERNAME, username, username_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_REALM, turn->realm,
+        turn->realm_len, 0);
+    stun_attr_varsize_add(turn->req, STUN_ATTR_NONCE, turn->nonce,
+        turn->nonce_len, 0);
     stun_attr_msgint_add(turn->req, turn->key, 16); /* Already calculated */
   }
   
@@ -539,16 +533,16 @@ static CURLcode stun_recv(struct TURN *turn,
   uint8_t *buf;
   size_t buf_len;
   int result;
-  struct stun_msg_hdr *resp;
+  stun_msg_hdr *resp;
   curl_socket_t sock = turn->conn->sock[sockindex];
   long actualread;
 
   /* Receive header first */
-  buf_len = sizeof(struct stun_msg_hdr);
+  buf_len = sizeof(stun_msg_hdr);
   buf = (uint8_t *)malloc(buf_len);
   if (!buf)
     return CURLE_OUT_OF_MEMORY;
-  resp = (struct stun_msg_hdr *)buf;
+  resp = (stun_msg_hdr *)buf;
   result = Curl_blockread_all(turn->conn, sock, (char*)buf, buf_len, &actualread);
   if((result != CURLE_OK) || (actualread != buf_len)) {
     free(buf);
@@ -556,19 +550,19 @@ static CURLcode stun_recv(struct TURN *turn,
   }
 
   /* Receive attributes, if available */
-  if (stun_msg_len(resp) > sizeof(struct stun_msg_hdr)) {
+  if (stun_msg_len(resp) > sizeof(stun_msg_hdr)) {
     buf_len = stun_msg_len(resp);
     buf = (uint8_t *)realloc(buf, buf_len);
     if (!buf) {
       free(resp);
       return CURLE_OUT_OF_MEMORY;
     }
-    resp = (struct stun_msg_hdr *)buf;
+    resp = (stun_msg_hdr *)buf;
     result = Curl_blockread_all(turn->conn, sock,
-        (char*)(buf + sizeof(struct stun_msg_hdr)),
-        buf_len - sizeof(struct stun_msg_hdr), &actualread);
+        (char*)(buf + sizeof(stun_msg_hdr)),
+        buf_len - sizeof(stun_msg_hdr), &actualread);
     if((result != CURLE_OK)
-       || (actualread != buf_len - sizeof(struct stun_msg_hdr))) {
+       || (actualread != buf_len - sizeof(stun_msg_hdr))) {
       free(buf);
       return CURLE_COULDNT_CONNECT;
     }
@@ -583,12 +577,12 @@ static CURLcode stun_recv(struct TURN *turn,
 
 static void failf_dump(struct SessionHandle *data,
                        const char *text,
-                       struct stun_msg_hdr *resp) {
+                       stun_msg_hdr *resp) {
   uint16_t msg_type = stun_msg_type(resp);
   if(STUN_IS_ERROR_RESPONSE(msg_type)) {
-    struct stun_attr_errcode *errcode;
-    errcode = (struct stun_attr_errcode *)
-        stun_msg_find_attr(resp, STUN_ERROR_CODE);
+    stun_attr_errcode *errcode;
+    errcode = (stun_attr_errcode *)
+        stun_msg_find_attr(resp, STUN_ATTR_ERROR_CODE);
     if(errcode) {
       int status = stun_attr_errcode_status(errcode);
       failf(data, "%s: %s %s (%d %*s)", text,
