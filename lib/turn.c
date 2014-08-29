@@ -352,7 +352,11 @@ static CURLcode send_connect_req(struct TURN *turn,
   username_len = strlen(username);
   buf_len = sizeof(stun_msg_hdr)
     + STUN_ATTR_VARSIZE_SIZE(4)
+#ifdef ENABLE_IPV6
+    + STUN_ATTR_SOCKADDR_SIZE(STUN_IPV6);
+#else
     + STUN_ATTR_SOCKADDR_SIZE(STUN_IPV4);
+#endif
   if (turn->realm) {
     buf_len += STUN_ATTR_VARSIZE_SIZE(username_len)
       + STUN_ATTR_VARSIZE_SIZE(turn->realm_len)
