@@ -101,48 +101,39 @@ static struct {
   { STUN_ERROR_INSUFFICIENT_CAPACITY,     "Insufficient Capacity"},
 };
 
-static const char *method_map[] = {
-  /* 0 */ "???",
-  /* 1 */ "Binding",
-  /* 2 */ "SharedSecret",
-  /* 3 */ "Allocate",
-  /* 4 */ "Refresh",
-  /* 5 */ "???",
-  /* 6 */ "Send",
-  /* 7 */ "Data",
-  /* 8 */ "CreatePermission",
-  /* 9 */ "ChannelBind",
-  /* A */ "Connect",
-  /* B */ "ConnectionBind",
-  /* C */ "ConnectionAttempt",
-};
-
 const char *stun_err_reason(int err_code) {
-  int first = 0;
-  int n = sizeof(err_msg_map) / sizeof(err_msg_map[0]);
-
-  /* Find error message using binary search */
-  while (n > 0) {
-    int half = n/2;
-    int mid = first + half;
-    if (err_msg_map[mid].err_code < err_code) {
-      first = mid+1;
-      n -= (half+1);
-    } else if (err_msg_map[mid].err_code > err_code) {
-      n = half;
-    } else {
-      return err_msg_map[mid].err_msg;
-    }
+  int i;
+  for (i = 0; i < sizeof(err_msg_map) / sizeof(err_msg_map[0]); i++) {
+    if (err_msg_map[i].err_code == err_code)
+      return err_msg_map[i].err_msg;
   }
-
-  return NULL;
+  return "???"; /* Avoiding to return NULL for unknown codes */
 }
 
 const char *stun_method_name(uint16_t type)
 {
+  static const char *method_map[] = {
+    /* 0 */ "???",
+    /* 1 */ "Binding",
+    /* 2 */ "SharedSecret",
+    /* 3 */ "Allocate",
+    /* 4 */ "Refresh",
+    /* 5 */ "???",
+    /* 6 */ "Send",
+    /* 7 */ "Data",
+    /* 8 */ "CreatePermission",
+    /* 9 */ "ChannelBind",
+    /* A */ "Connect",
+    /* B */ "ConnectionBind",
+    /* C */ "ConnectionAttempt",
+  };
   int method = STUN_GET_METHOD(type);
-  if (method >= sizeof(method_map)/sizeof(method_map[0]))
+  if (method >= sizeof(method_map)/sizeof(method_map[0])) {
+    if (method == STUN_TUNNEL_REQUEST)
+      return "Tunnel";
+    else
 	  return "???";
+  }
   return method_map[method];
 }
 
@@ -206,6 +197,7 @@ int stun_attr_sockaddr_init(stun_attr_sockaddr *attr,
     attr->port = sin->sin_port;
     memcpy(&attr->addr.v4, &sin->sin_addr, sizeof(sin->sin_addr));
     return STUN_OK;
+#ifdef ENABLE_IPV6
   } else if (addr->sa_family == AF_INET6) {
     struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) addr;
     stun_attr_hdr_init(&attr->hdr, type,
@@ -218,6 +210,7 @@ int stun_attr_sockaddr_init(stun_attr_sockaddr *attr,
     attr->port = sin6->sin6_port;
     memcpy(&attr->addr.v6, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
     return STUN_OK;
+#endif
   } else {
     return STUN_ERR_NOT_SUPPORTED;
   }
@@ -238,6 +231,7 @@ int stun_attr_xor_sockaddr_init(stun_attr_xor_sockaddr *attr,
   p += sizeof(attr->port); /* advance the port */
   *(uint32_t *)p ^= htonl(STUN_MAGIC_COOKIE);
   p += sizeof(attr->addr.v4); /* advance the IPv4 address */
+#ifdef ENABLE_IPV6
   if (attr->family == STUN_IPV6) {
     /* rest of IPv6 address has to be XOR'ed with the transaction id */
     *p++ ^= hdr->tsx_id[0];  *p++ ^= hdr->tsx_id[1];
@@ -247,6 +241,7 @@ int stun_attr_xor_sockaddr_init(stun_attr_xor_sockaddr *attr,
     *p++ ^= hdr->tsx_id[8];  *p++ ^= hdr->tsx_id[9];
     *p++ ^= hdr->tsx_id[10]; *p++ ^= hdr->tsx_id[11];
   }
+#endif
   return STUN_OK;
 }
 
@@ -562,6 +557,7 @@ int stun_attr_sockaddr_read(const stun_attr_sockaddr *attr,
     memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
     memcpy(&sin->sin_addr, &attr->addr.v4, sizeof(attr->addr.v4));
     return STUN_OK;
+#ifdef ENABLE_IPV6
   } else if (attr->family == STUN_IPV6) {
     struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)addr;
     memset(sin6, 0, sizeof(struct sockaddr_in6));
@@ -569,6 +565,7 @@ int stun_attr_sockaddr_read(const stun_attr_sockaddr *attr,
     sin6->sin6_port = attr->port;
     memcpy(&sin6->sin6_addr, &attr->addr.v6, sizeof(attr->addr.v6));
     return STUN_OK;
+#endif
   } else {
     return STUN_ERR_BAD_ADDR_FAMILY;
   }
@@ -585,7 +582,9 @@ int stun_attr_xor_sockaddr_read(const stun_attr_xor_sockaddr *attr,
     struct sockaddr_in *sin = (struct sockaddr_in *)addr;
     sin->sin_port ^= htons((uint16_t)(STUN_MAGIC_COOKIE >> 16));
     *((uint32_t*)&sin->sin_addr) ^= htonl(STUN_MAGIC_COOKIE);
-  } else {
+  }
+#ifdef ENABLE_IPV6
+  else {
     struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)addr;
     uint8_t *p = (uint8_t*)&sin6->sin6_addr;
     sin6->sin6_port ^= htons((uint16_t)(STUN_MAGIC_COOKIE >> 16));
@@ -599,6 +598,7 @@ int stun_attr_xor_sockaddr_read(const stun_attr_xor_sockaddr *attr,
     *p++ ^= msg_hdr->tsx_id[8];  *p++ ^= msg_hdr->tsx_id[9];
     *p++ ^= msg_hdr->tsx_id[10]; *p++ ^= msg_hdr->tsx_id[11];
   }
+#endif
   return STUN_OK;
 }
 
